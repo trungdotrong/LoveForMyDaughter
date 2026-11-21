@@ -76,5 +76,7 @@ export interface GameTheme {
   coverStage: number;
   intro: StoryScene;
   setEvents: SetStoryEvent[];
+  /** Button on the friend-unlock screen that leads into the story scene, e.g. "Go to the party!". */
+  unlockButton: string;
   finale: FinaleConfig;
 }

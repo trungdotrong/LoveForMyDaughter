@@ -31,6 +31,7 @@ export const birthdayParty: GameTheme = {
   host: BUNNY,
   Scene: BirthdayScene,
   coverStage: 3,
+  unlockButton: "Go to the party!",
   intro: {
     title: "Bunny's Birthday",
     dialogue: [

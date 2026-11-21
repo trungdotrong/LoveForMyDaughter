@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState } from "react";
 import { CritterIcon } from "@/components/art/Critter";
-import { useSound } from "@/hooks/useSound";
 import { TOTAL_SETS } from "@/lib/alphabet";
 import type { GameTheme } from "@/themes/types";
-import { Confetti } from "../ui/Confetti";
 import { DialogueBox } from "./DialogueBox";
+import { FriendUnlock } from "./FriendUnlock";
 import { SceneFrame } from "./SceneFrame";
 
-/** The main reward: the scene changes as a new character joins the story. */
+/**
+ * The main reward for a finished set: first the mystery friend is unlocked,
+ * then the scene changes as that friend joins the story.
+ */
 export function StoryProgression({
   theme,
   setNumber,
@@ -20,16 +22,22 @@ export function StoryProgression({
   onDone: () => void;
 }) {
   const event = theme.setEvents[setNumber - 1];
-  const { play } = useSound();
   const isLast = setNumber >= TOTAL_SETS;
+  const [unlocked, setUnlocked] = useState(false);
 
-  useEffect(() => {
-    play("setComplete");
-  }, [play]);
+  if (!unlocked) {
+    return (
+      <FriendUnlock
+        character={event.character}
+        colors={theme.colors}
+        buttonLabel={theme.unlockButton}
+        onDone={() => setUnlocked(true)}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-4 ui-fade-in">
-      <Confetti count={24} />
       <div className="flex items-center justify-center gap-3">
         <CritterIcon
           species={event.character.species}

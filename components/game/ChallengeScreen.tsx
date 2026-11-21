@@ -1,9 +1,9 @@
-import { CritterIcon } from "@/components/art/Critter";
 import { getCurrentTasks, isTaskDone, type ThemeProgress } from "@/lib/game-engine";
 import type { GameTheme } from "@/themes/types";
 import { GameButton } from "../ui/GameButton";
 import { Icon } from "../ui/Icon";
 import { LetterCard } from "./LetterCard";
+import { MysteryFriendCard } from "./MysteryFriend";
 import { SceneFrame } from "./SceneFrame";
 
 export function ChallengeScreen({
@@ -24,17 +24,13 @@ export function ChallengeScreen({
     <div className="flex flex-1 flex-col gap-4 ui-fade-in">
       <SceneFrame theme={theme} stage={progress.currentSet - 1} />
 
-      <div className="flex items-end gap-2">
-        <CritterIcon
-          species={theme.host.species}
-          accessory={theme.host.accessory}
-          pose="wave"
-          className="h-20 w-16 shrink-0"
-        />
-        <p className="relative mb-3 flex-1 rounded-2xl rounded-bl-sm bg-white px-4 py-3 text-lg leading-snug shadow-[0_4px_0_#efe3d3]">
-          {event.mission}
-        </p>
-      </div>
+      <MysteryFriendCard
+        character={event.character}
+        mission={event.mission}
+        found={found}
+        total={tasks.length}
+        colors={colors}
+      />
 
       <h2 className="text-center text-2xl font-semibold">Find these letters!</h2>
       <div className="flex gap-3 px-1">

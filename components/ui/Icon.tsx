@@ -12,6 +12,7 @@ const PATHS = {
   replay: "M4 12 A8 8 0 1 0 7 5.8 M4 4 V9 H9",
   keyboard: "M3 6 H21 V18 H3 Z M7 10 H7.01 M11 10 H11.01 M15 10 H15.01 M7 14 H17",
   logout: "M10 4 H4 V20 H10 M15 8 L19 12 L15 16 M19 12 H9",
+  lock: "M5.5 11 H18.5 V20.5 H5.5 Z M8.5 11 V8 A3.5 3.5 0 0 1 15.5 8 V11 M12 14.5 V17",
 } as const;
 
 export type IconName = keyof typeof PATHS;

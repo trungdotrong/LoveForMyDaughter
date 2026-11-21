@@ -34,6 +34,7 @@ export const forestRescue: GameTheme = {
   host: OWL_GUIDE,
   Scene: ForestScene,
   coverStage: 3,
+  unlockButton: "Join the team!",
   intro: {
     title: "Forest Rescue",
     dialogue: [
