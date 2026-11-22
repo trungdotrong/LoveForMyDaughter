@@ -17,9 +17,12 @@ export type Species =
   | "mouse"
   | "lion"
   | "raccoon"
-  | "duck";
+  | "duck"
+  | "tiger"
+  /** A kindly old farmer, drawn in the same round style as the animals. */
+  | "farmer";
 
-export type Accessory = "party-hat" | "bow" | "crown" | "flower" | "scarf" | "none";
+export type Accessory = "party-hat" | "bow" | "crown" | "flower" | "scarf" | "straw-hat" | "none";
 export type Pose = "idle" | "wave" | "bounce" | "clap" | "cheer";
 export type Mood = "happy" | "lonely" | "wow";
 
@@ -27,7 +30,9 @@ export const INK = "#4a4359";
 const LINE = { stroke: INK, strokeWidth: 2.2, strokeLinejoin: "round" as const };
 const CHEEK = "#ff9fb6";
 
-const PALETTES: Record<Species, { fur: string; belly: string; inner: string }> = {
+/** `body` and `feet` default to `fur`; the farmer wears overalls and boots. */
+const PALETTES: Record<Species, { fur: string; belly: string; inner: string; body?: string; feet?: string }> = {
+  farmer: { fur: "#ffd9b8", belly: "#9cc4ee", inner: "#f0a98a", body: "#6f9fd8", feet: "#8a5a3c" },
   bunny: { fur: "#fffaf5", belly: "#ffe9ef", inner: "#ffc2d4" },
   bear: { fur: "#c8956a", belly: "#efcfab", inner: "#a8714a" },
   fox: { fur: "#f6a15b", belly: "#fff4e8", inner: "#fff4e8" },
@@ -38,6 +43,7 @@ const PALETTES: Record<Species, { fur: string; belly: string; inner: string }> =
   pig: { fur: "#f9bfcb", belly: "#ffdbe3", inner: "#f497ab" },
   mouse: { fur: "#c9ccd8", belly: "#eef0f5", inner: "#ffc2d4" },
   lion: { fur: "#f7cd63", belly: "#fff0c4", inner: "#e9913f" },
+  tiger: { fur: "#ffa449", belly: "#fff6ea", inner: "#fff6ea" },
   raccoon: { fur: "#b4b6c6", belly: "#eceef4", inner: "#5f6074" },
   duck: { fur: "#ffe27a", belly: "#fff3bf", inner: "#ff9f45" },
 };
@@ -65,10 +71,11 @@ export function Critter({
       <g {...LINE}>
         {species === "lion" && <Mane />}
         <Ears species={species} fur={p.fur} inner={p.inner} />
-        <ellipse cx="50" cy="96" rx="25" ry="22" fill={species === "panda" ? INK : p.fur} />
+        <ellipse cx="50" cy="96" rx="25" ry="22" fill={species === "panda" ? INK : (p.body ?? p.fur)} />
         <ellipse cx="50" cy="100" rx="15" ry="14" fill={p.belly} stroke="none" />
-        <ellipse cx="39" cy="116" rx="9" ry="5" fill={species === "duck" ? p.inner : p.fur} />
-        <ellipse cx="61" cy="116" rx="9" ry="5" fill={species === "duck" ? p.inner : p.fur} />
+        {species === "farmer" && <Overalls />}
+        <ellipse cx="39" cy="116" rx="9" ry="5" fill={species === "duck" ? p.inner : (p.feet ?? p.fur)} />
+        <ellipse cx="61" cy="116" rx="9" ry="5" fill={species === "duck" ? p.inner : (p.feet ?? p.fur)} />
         <g className="critter-arm critter-arm-l" style={{ animationDelay: `${delay}s` }}>
           <ellipse cx="27" cy="92" rx="6.5" ry="12" fill={armFill} />
         </g>
@@ -85,6 +92,17 @@ export function Critter({
       </g>
       <Face species={species} mood={mood} belly={p.belly} inner={p.inner} />
       <AccessoryShape accessory={accessory} />
+    </g>
+  );
+}
+
+/** Bib straps and buttons over the farmer's shirt. */
+function Overalls() {
+  return (
+    <g stroke={INK} strokeWidth="1.8">
+      <path d="M38 78 L42 92 M62 78 L58 92" fill="none" strokeLinecap="round" />
+      <circle cx="42" cy="92" r="2.2" fill="#ffe27a" />
+      <circle cx="58" cy="92" r="2.2" fill="#ffe27a" />
     </g>
   );
 }
@@ -120,6 +138,7 @@ function Ears({ species, fur, inner }: { species: Species; fur: string; inner: s
     case "bear":
     case "panda":
     case "lion":
+    case "tiger":
       return (
         <>
           <circle cx="27" cy="27" r="10" fill={species === "panda" ? INK : fur} />
@@ -170,6 +189,16 @@ function Ears({ species, fur, inner }: { species: Species; fur: string; inner: s
       return <path d="M50 21 Q46 10 52 8 Q50 14 56 12 Q54 18 50 21 Z" fill={fur} />;
     case "frog":
       return null;
+    case "farmer":
+      // Small round ears with tufts of white hair above them.
+      return (
+        <>
+          <circle cx="20" cy="54" r="7" fill={fur} />
+          <circle cx="80" cy="54" r="7" fill={fur} />
+          <ellipse cx="24" cy="40" rx="7" ry="9" fill="#f4f1ec" />
+          <ellipse cx="76" cy="40" rx="7" ry="9" fill="#f4f1ec" />
+        </>
+      );
   }
 }
 
@@ -300,10 +329,39 @@ function Face({ species, mood, belly, inner }: { species: Species; mood: Mood; b
           <Mouth mood={mood} y={66} />
         </g>
       );
-    case "bear":
-    case "lion":
+    case "farmer":
       return (
         <g>
+          {brows}
+          <Eye x={39} y={47} r={3.6} />
+          <Eye x={61} y={47} r={3.6} />
+          {cheeks}
+          <ellipse cx="50" cy="56" rx="5.5" ry="4.5" fill={inner} stroke={INK} strokeWidth="1.8" />
+          {/* Big friendly white mustache */}
+          <path
+            d="M50 61 Q42 58 34 63 Q38 69 45 66 Q48 65 50 63 Q52 65 55 66 Q62 69 66 63 Q58 58 50 61 Z"
+            fill="#f4f1ec"
+            stroke={INK}
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
+          {mood === "wow" ? <ellipse cx="50" cy="72" rx="3" ry="3.6" fill={INK} /> : <Mouth mood={mood} y={70} />}
+        </g>
+      );
+    case "bear":
+    case "lion":
+    case "tiger":
+      return (
+        <g>
+          {species === "tiger" && (
+            <g fill={INK} opacity="0.8">
+              <path d="M44 22 Q50 30 56 22 Q50 26 44 22 Z" />
+              <path d="M38 25 Q42 33 46 27 Z" />
+              <path d="M62 25 Q58 33 54 27 Z" />
+              <path d="M21 46 Q28 48 30 52 Q26 50 21 50 Z" />
+              <path d="M79 46 Q72 48 70 52 Q74 50 79 50 Z" />
+            </g>
+          )}
           <ellipse cx="50" cy="62" rx="12" ry="9" fill={belly} />
           {brows}
           <Eye x={38} y={47} />
@@ -393,23 +451,54 @@ function AccessoryShape({ accessory }: { accessory: Accessory }) {
           <rect x="56" y="78" width="9" height="18" rx="4" fill="#ff8f8f" />
         </g>
       );
+    case "straw-hat":
+      return (
+        <g stroke={INK} strokeWidth="2" strokeLinejoin="round">
+          <ellipse cx="50" cy="26" rx="40" ry="8" fill="#f3cf6b" />
+          <path d="M30 26 Q30 2 50 2 Q70 2 70 26 Z" fill="#f7da82" />
+          <path d="M31 20 Q50 25 69 20 L69.6 25 Q50 30 30.4 25 Z" fill="#ff7a7a" />
+        </g>
+      );
     case "none":
       return null;
   }
 }
 
 /** Positions a critter inside a larger SVG scene by its feet (x, y). */
+/** A one-shot reaction (e.g. to a tap). A new `key` replays the animation. */
+export interface CritterReaction {
+  key: number;
+  className?: string;
+  delay?: number;
+}
+
 export function PlacedCritter({
   x,
   y,
   scale,
   className,
+  reaction,
+  tilt = 0,
   ...critter
-}: CritterProps & { x: number; y: number; scale: number; className?: string }) {
+}: CritterProps & {
+  x: number;
+  y: number;
+  scale: number;
+  className?: string;
+  reaction?: CritterReaction;
+  /** Degrees to lean around the feet; negative leans left (e.g. pulling a rope). */
+  tilt?: number;
+}) {
   return (
-    <g transform={`translate(${x - 50 * scale} ${y - 118 * scale}) scale(${scale})`}>
+    <g transform={`translate(${x - 50 * scale} ${y - 118 * scale}) scale(${scale}) rotate(${tilt} 50 118)`}>
       <g className={className}>
-        <Critter {...critter} />
+        <g
+          key={reaction?.key ?? 0}
+          className={reaction?.className ? `tap-react ${reaction.className}` : undefined}
+          style={reaction?.delay ? { animationDelay: `${reaction.delay}s` } : undefined}
+        >
+          <Critter {...critter} />
+        </g>
       </g>
     </g>
   );

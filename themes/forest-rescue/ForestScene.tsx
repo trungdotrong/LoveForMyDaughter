@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { INK, PlacedCritter, type Pose } from "@/components/art/Critter";
+import { useSound } from "@/hooks/useSound";
 import type { SceneProps } from "../types";
 import { OWL_GUIDE, RESCUE_TEAM } from "./characters";
 import { Monster } from "./Monster";
@@ -32,8 +33,30 @@ const TREES = [
   { x: 458, y: 118, r: 36, c: "#a7dc8f" },
 ];
 
-export function ForestScene({ stage, mode = "normal", className }: SceneProps) {
+/** Wobble's center (before the finale walk) and the radius of the giggly bubble shield. */
+const WOBBLE = { x: 425, y: 208 };
+const SHIELD_R = 40;
+const GIGGLES = ["Hee hee!", "Missed me!", "Boing!", "Tickles!", "Try again!"];
+/** How many recent magic shots stay drawn (older ones have finished). */
+const SHOTS_KEPT = 4;
+
+const STAR = "M0 -11 L3.2 -3.5 L11 -3.4 L4.8 1.6 L7 9.5 L0 5 L-7 9.5 L-4.8 1.6 L-11 -3.4 L-3.2 -3.5 Z";
+const HEART = "M0 9 C-14 0 -10 -12 0 -5 C10 -12 14 0 0 9 Z";
+
+const vars = (v: Record<string, string>) => v as CSSProperties;
+
+export function ForestScene({ stage, mode = "normal", poke = 0, className }: SceneProps) {
   const finale = mode === "finale";
+
+  // Each tap: the team casts magic at Wobble. Until the finale it bounces off
+  // Wobble's bubble shield; in the finale it lands as hearts and Wobble is won over.
+  const { play } = useSound();
+  useEffect(() => {
+    if (poke === 0) return;
+    play("zap");
+    const t = setTimeout(() => play(finale ? "chime" : "bonk"), 520);
+    return () => clearTimeout(t);
+  }, [poke, finale, play]);
   // Finale beats: 0 = team marches, 1 = forest restored + Wobble smiles, 2 = everyone celebrates.
   const [beat, setBeat] = useState(0);
   useEffect(() => {
@@ -58,6 +81,17 @@ export function ForestScene({ stage, mode = "normal", className }: SceneProps) {
   const members = TEAM_SLOTS.map((slot, i) => ({ slot, i }))
     .filter(({ i }) => i < stage)
     .sort((a, b) => a.slot.y - b.slot.y);
+
+  // Magic comes from the team, or from Owl before anyone has joined.
+  const from = members.length > 0 ? { x: finale ? 190 : 150, y: 236 } : { x: 130, y: 70 };
+  const target = { x: together ? WOBBLE.x - 70 : WOBBLE.x, y: WOBBLE.y };
+  const blocked = !finale;
+  const angle = Math.atan2(target.y - from.y, target.x - from.x);
+  // Blocked shots stop at the shield's edge; finale hearts fly right in.
+  const hit = blocked
+    ? { x: target.x - Math.cos(angle) * SHIELD_R, y: target.y - Math.sin(angle) * SHIELD_R }
+    : target;
+  const shots = poke > 0 ? Array.from({ length: Math.min(poke, SHOTS_KEPT) }, (_, k) => poke - k) : [];
 
   return (
     <svg viewBox="0 0 480 320" className={className} role="img" aria-label="The magic forest">
@@ -120,8 +154,50 @@ export function ForestScene({ stage, mode = "normal", className }: SceneProps) {
       {/* Wobble the monster */}
       <g className="slide" style={{ transform: together ? "translateX(-70px)" : "none" }}>
         <g transform={`translate(${425 - 70 * 0.52} ${236 - 136 * 0.52}) scale(0.52)`}>
-          <Monster happy={restored} />
+          <g key={poke} className={poke > 0 ? (blocked ? "monster-giggle" : "monster-joy") : undefined}>
+            <Monster happy={restored} />
+          </g>
         </g>
+        {poke > 0 && blocked && (
+          <g key={`react-${poke}`}>
+            <circle
+              cx={WOBBLE.x}
+              cy={WOBBLE.y}
+              r={SHIELD_R}
+              fill="#d8f1ff"
+              fillOpacity="0.55"
+              stroke="#8fd3ff"
+              strokeWidth="3"
+              className="shield-flash"
+            />
+            <g className="say-bubble">
+              <rect x={WOBBLE.x - 62} y={WOBBLE.y - 92} width="86" height="26" rx="13" fill="#fff" stroke={INK} strokeWidth="2" />
+              <path d={`M${WOBBLE.x - 24} ${WOBBLE.y - 67} l6 10 l4 -10 Z`} fill="#fff" stroke={INK} strokeWidth="2" strokeLinejoin="round" />
+              <text x={WOBBLE.x - 19} y={WOBBLE.y - 74} textAnchor="middle" fontSize="13" fontWeight="700" fill="#7b5fd6">
+                {GIGGLES[(poke - 1) % GIGGLES.length]}
+              </text>
+            </g>
+          </g>
+        )}
+        {poke > 0 && !blocked && (
+          <g key={`hearts-${poke}`}>
+            {Array.from({ length: 6 }, (_, i) => {
+              const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+              return (
+                <g key={i} transform={`translate(${WOBBLE.x} ${WOBBLE.y - 10})`}>
+                  <path
+                    d={HEART}
+                    fill={["#ff7aa2", "#ffb3c7", "#ff9fb6"][i % 3]}
+                    stroke={INK}
+                    strokeWidth="1.4"
+                    className="heart-burst"
+                    style={vars({ "--dx": `${Math.cos(a) * 55}px`, "--dy": `${Math.sin(a) * 45}px` })}
+                  />
+                </g>
+              );
+            })}
+          </g>
+        )}
       </g>
 
       {/* Bushes: eyes peek out until that animal joins the team */}
@@ -158,9 +234,23 @@ export function ForestScene({ stage, mode = "normal", className }: SceneProps) {
             pose={pose(i)}
             delay={i * 0.25}
             className={mode === "arrival" && i === stage - 1 ? "anim-arrive" : undefined}
+            reaction={poke > 0 ? { key: poke, className: "react-jump", delay: i * 0.04 } : undefined}
           />
         ))}
       </g>
+
+      {/* Magic shots, newest last */}
+      {shots.map((id) => (
+        <g key={id} transform={`translate(${from.x} ${from.y})`}>
+          <g
+            className={`magic-shot ${blocked ? "blocked" : ""}`}
+            style={vars({ "--dx": `${hit.x - from.x}px`, "--dy": `${hit.y - from.y}px` })}
+          >
+            <circle r="15" fill={blocked ? "#fff6b0" : "#ffd1df"} opacity="0.7" />
+            <path d={blocked ? STAR : HEART} fill={blocked ? "#ffd84d" : "#ff7aa2"} stroke={INK} strokeWidth="1.6" strokeLinejoin="round" />
+          </g>
+        </g>
+      ))}
     </svg>
   );
 }

@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/client";
 import { THEMES } from "@/themes";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { IconButton } from "../ui/GameButton";
+import { VoicePicker } from "./VoicePicker";
 import { Icon } from "../ui/Icon";
 
 type Pending = { kind: "restart"; themeId: string; title: string } | { kind: "clear" } | null;
@@ -25,6 +26,8 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { save, update } = useGameSave();
   const { enabled, toggle } = useSound();
   const [pending, setPending] = useState<Pending>(null);
+  const testMode = save?.settings.testMode ?? false;
+  const gameMode = save?.settings.gameMode ?? "scan";
 
   async function signOut() {
     await createClient().auth.signOut();
@@ -51,6 +54,33 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           </IconButton>
         </div>
 
+        <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-ink-soft">Game mode</h3>
+        <div className="mt-2 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Game mode">
+          {(
+            [
+              { mode: "scan", title: "Scan & Unlock", note: "Find QR cards, unlock friends", emoji: "📷" },
+              { mode: "race", title: "ABC Race", note: "Answer quizzes, win the race", emoji: "🏎️" },
+            ] as const
+          ).map((m) => {
+            const active = gameMode === m.mode;
+            return (
+              <button
+                key={m.mode}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => update((s) => ({ ...s, settings: { ...s.settings, gameMode: m.mode } }))}
+                className="flex flex-col items-center rounded-2xl border-[3px] px-2 py-3 text-center transition-colors"
+                style={{ borderColor: active ? "#4cbf6a" : "transparent", background: active ? "#e3f8dc" : "var(--color-cream)" }}
+              >
+                <span className="text-3xl" aria-hidden="true">{m.emoji}</span>
+                <span className="text-lg font-semibold">{m.title}</span>
+                <span className="text-sm leading-tight text-ink-soft">{m.note}</span>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="mt-5 flex flex-col gap-2">
           <button type="button" className={ROW} onClick={toggle} aria-pressed={enabled}>
             <span className="flex items-center gap-3">
@@ -59,6 +89,24 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             </span>
             <span className="rounded-full px-3 py-1 text-sm font-semibold text-white" style={{ background: enabled ? "#4cbf6a" : "#b9b2c6" }}>
               {enabled ? "On" : "Off"}
+            </span>
+          </button>
+          <VoicePicker rowClassName={ROW} />
+          <button
+            type="button"
+            className={ROW}
+            onClick={() => update((s) => ({ ...s, settings: { ...s.settings, testMode: !s.settings.testMode } }))}
+            aria-pressed={testMode}
+          >
+            <span className="flex items-center gap-3">
+              <Icon name="keyboard" />
+              <span>
+                Test mode
+                <span className="block text-sm text-ink-soft">Pretend to scan cards, no camera needed</span>
+              </span>
+            </span>
+            <span className="rounded-full px-3 py-1 text-sm font-semibold text-white" style={{ background: testMode ? "#4cbf6a" : "#b9b2c6" }}>
+              {testMode ? "On" : "Off"}
             </span>
           </button>
           <Link href="/print" className={ROW}>

@@ -49,6 +49,11 @@ export interface SceneProps {
   stage: number;
   /** "arrival" animates the newest character in; "finale" plays the ending. */
   mode?: SceneMode;
+  /**
+   * How many times the child has tapped the scene (0 = not yet). Each new
+   * value should trigger a small playful reaction; the scene may play sounds.
+   */
+  poke?: number;
   className?: string;
 }
 

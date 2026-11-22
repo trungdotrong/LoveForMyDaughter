@@ -1,4 +1,8 @@
-import { INK, PlacedCritter, type Pose } from "@/components/art/Critter";
+"use client";
+
+import { useEffect } from "react";
+import { INK, PlacedCritter, type CritterReaction, type Pose } from "@/components/art/Critter";
+import { useSound } from "@/hooks/useSound";
 import type { SceneProps } from "../types";
 import { BIRTHDAY_FRIENDS, BUNNY } from "./characters";
 
@@ -24,8 +28,23 @@ function bunting(t: number) {
   return { x: 2 * u * t * 240 + t * t * 480, y: u * u * 18 + 2 * u * t * 78 + t * t * 18 };
 }
 
-export function BirthdayScene({ stage, mode = "normal", className }: SceneProps) {
+/** Each tap makes everyone do the next party move. */
+const PARTY_MOVES = [
+  { className: "react-jump", sound: "boing" },
+  { className: "react-spin", sound: "chime" },
+  { className: "react-dance", sound: "boing" },
+] as const;
+
+export function BirthdayScene({ stage, mode = "normal", poke = 0, className }: SceneProps) {
   const finale = mode === "finale";
+  const move = poke > 0 ? PARTY_MOVES[(poke - 1) % PARTY_MOVES.length] : null;
+  const { play } = useSound();
+  useEffect(() => {
+    if (poke > 0) play(PARTY_MOVES[(poke - 1) % PARTY_MOVES.length].sound);
+  }, [poke, play]);
+  /** Friends react one after another, like a wave around the table. */
+  const react = (order: number): CritterReaction | undefined =>
+    move ? { key: poke, className: move.className, delay: order * 0.06 } : undefined;
   const flags = finale ? 22 : Math.min(4 + stage * 2, 22);
   const balloons = finale ? BALLOONS.length : Math.min(stage + 1, BALLOONS.length);
   const presents = Math.min(stage, PRESENTS.length);
@@ -102,6 +121,7 @@ export function BirthdayScene({ stage, mode = "normal", className }: SceneProps)
               pose={friendPose(i)}
               delay={i * 0.3}
               className={friendClass(i)}
+              reaction={react(i + 1)}
             />
           )}
         </g>
@@ -118,6 +138,7 @@ export function BirthdayScene({ stage, mode = "normal", className }: SceneProps)
         accessory={BUNNY.accessory}
         mood={stage === 0 ? "lonely" : "happy"}
         pose={finale ? "cheer" : mode === "arrival" ? "bounce" : "idle"}
+        reaction={react(0)}
       />
 
       {/* Table */}
@@ -161,6 +182,7 @@ export function BirthdayScene({ stage, mode = "normal", className }: SceneProps)
           accessory={lion.accessory}
           pose={friendPose(8)}
           className={friendClass(8)}
+          reaction={react(9)}
         />
       )}
 

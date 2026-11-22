@@ -3,6 +3,8 @@
  * audio files. Every function is a no-op on the server or without audio support.
  */
 
+import { narratorUtterance } from "./voice";
+
 export interface Melody {
   bpm: number;
   /** [note, beats]; note like "C4", "F#5", or "R" for a rest. */
@@ -57,9 +59,73 @@ function tone(
   return osc;
 }
 
+/** One note gliding from f0 to f1, for boings and zaps. */
+function sweep(f0: number, f1: number, start: number, duration: number, type: OscillatorType = "sine", volume = 0.14) {
+  const ac = audio();
+  if (!ac) return;
+  const t = ac.currentTime + start;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(f0, t);
+  osc.frequency.exponentialRampToValueAtTime(f1, t + duration);
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(volume, t + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t);
+  osc.stop(t + duration + 0.05);
+}
+
+/** A burst of filtered noise: splashes and whooshes. */
+function noise(start: number, duration: number, volume: number, frequency: number) {
+  const ac = audio();
+  if (!ac) return;
+  const length = Math.floor(ac.sampleRate * duration);
+  const buffer = ac.createBuffer(1, length, ac.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 2;
+  const source = ac.createBufferSource();
+  source.buffer = buffer;
+  const filter = ac.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.value = frequency;
+  const gain = ac.createGain();
+  gain.gain.value = volume;
+  source.connect(filter).connect(gain).connect(ac.destination);
+  source.start(ac.currentTime + start);
+}
+
 export const sfx = {
+  /** Everyone pulls together: a low "heave". */
+  heave() {
+    sweep(130, 240, 0, 0.4, "triangle", 0.14);
+  },
+  splash() {
+    noise(0, 0.45, 0.5, 900);
+    sweep(700, 180, 0.02, 0.25, "sine", 0.06);
+  },
   tap() {
     tone(660, 0, 0.08, "triangle", 0.1);
+  },
+  /** A small bell that says "look at this letter". */
+  ting() {
+    tone(noteToFreq("E6"), 0, 0.5, "sine", 0.12);
+    tone(noteToFreq("B6"), 0.06, 0.6, "sine", 0.07);
+  },
+  boing() {
+    sweep(220, 520, 0, 0.22, "sine", 0.16);
+  },
+  zap() {
+    sweep(1400, 380, 0, 0.3, "triangle", 0.1);
+    tone(noteToFreq("A6"), 0.32, 0.12, "sine", 0.06);
+  },
+  /** Magic bouncing off a shield. */
+  bonk() {
+    sweep(520, 260, 0, 0.18, "square", 0.05);
+  },
+  chime() {
+    ["C6", "E6", "G6"].forEach((n, i) => tone(noteToFreq(n), i * 0.07, 0.35, "sine", 0.1));
   },
   success() {
     ["C5", "E5", "G5", "C6"].forEach((n, i) => tone(noteToFreq(n), i * 0.09, 0.25));
@@ -98,18 +164,90 @@ export function playMelody(melody: Melody): () => void {
     });
 }
 
-export function speak(text: string): void {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+/*
+ * Narration text can mark words to stress with asterisks, e.g.
+ * "Find the letter *E*!". Stressed words are said on their own, slower and
+ * brighter, with a short pause before them, so a single letter is never
+ * swallowed at the end of a quick sentence.
+ */
+
+interface SpeechPart {
+  text: string;
+  stressed: boolean;
+}
+
+/** Pause before a stressed word, and a shorter one after it. */
+const PAUSE_BEFORE_STRESS_MS = 320;
+const PAUSE_AFTER_STRESS_MS = 160;
+
+function parseSpeech(text: string): SpeechPart[] {
+  const parts: SpeechPart[] = [];
+  text.split(/(\*[^*]+\*)/).forEach((chunk) => {
+    const stressed = chunk.startsWith("*") && chunk.endsWith("*") && chunk.length > 2;
+    let body = (stressed ? chunk.slice(1, -1) : chunk).trim();
+    // Punctuation right after a stressed word ("*Apple*! Which...") belongs to that word, for the right tone.
+    const lead = /^[^\p{L}\p{N}]+/u.exec(body)?.[0] ?? "";
+    if (lead && parts.length) {
+      parts[parts.length - 1].text += lead.trim();
+      body = body.slice(lead.length).trim();
+    }
+    if (body) parts.push({ text: body, stressed });
+  });
+  return parts;
+}
+
+/** Rough time a phrase takes to say at the narrator's pace, used as a fallback. */
+export function estimateSpeechMs(text: string): number {
+  return parseSpeech(text).reduce(
+    (ms, p) => ms + (p.stressed ? 900 + PAUSE_BEFORE_STRESS_MS : 350 + p.text.length * 72),
+    300,
+  );
+}
+
+const hasSpeech = () => typeof window !== "undefined" && "speechSynthesis" in window;
+const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** Bumped whenever speech starts or stops, so an older sentence stops mid-way. */
+let speechRun = 0;
+
+/** Says one part and resolves when done. iOS doesn't always fire `end`, so it also times out. */
+function sayPart(part: SpeechPart): Promise<void> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(finish, estimateSpeechMs(part.stressed ? `*${part.text}*` : part.text) + 2000);
+    const utterance = narratorUtterance(part.text, part.stressed);
+    utterance.onend = finish;
+    utterance.onerror = finish;
+    window.speechSynthesis.speak(utterance);
+  });
+}
+
+/** Speaks the whole text and resolves when finished (or when interrupted by other speech). */
+export async function speakAsync(text: string): Promise<void> {
+  if (!hasSpeech()) return pause(estimateSpeechMs(text));
+  const run = ++speechRun;
   window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "en-US";
-  utterance.rate = 0.85;
-  utterance.pitch = 1.15;
-  window.speechSynthesis.speak(utterance);
+  const parts = parseSpeech(text);
+  for (let i = 0; i < parts.length; i++) {
+    if (run !== speechRun) return;
+    if (parts[i].stressed && i > 0) await pause(PAUSE_BEFORE_STRESS_MS);
+    if (run !== speechRun) return;
+    await sayPart(parts[i]);
+    if (parts[i].stressed && i < parts.length - 1) await pause(PAUSE_AFTER_STRESS_MS);
+  }
+}
+
+export function speak(text: string): void {
+  void speakAsync(text);
 }
 
 export function stopSpeaking(): void {
-  if (typeof window !== "undefined" && "speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-  }
+  speechRun++;
+  if (hasSpeech()) window.speechSynthesis.cancel();
 }

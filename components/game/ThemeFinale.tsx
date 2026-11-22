@@ -54,7 +54,7 @@ export function ThemeFinale({
       <h1 className="ui-bounce-in text-center text-4xl font-bold sm:text-5xl" style={{ color: colors.accentDark }}>
         {finale.message}
       </h1>
-      <SceneFrame theme={theme} stage={theme.setEvents.length} mode="finale" />
+      <SceneFrame theme={theme} stage={theme.setEvents.length} mode="finale" interactive />
       {storyDone ? (
         <div className="flex flex-col gap-4 ui-slide-up">
           <p className="rounded-3xl bg-white px-6 py-4 text-center text-xl shadow-[0_6px_0_#efe3d3]">

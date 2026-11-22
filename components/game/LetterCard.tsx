@@ -5,21 +5,32 @@ export function LetterCard({
   found,
   review = false,
   accent,
+  focused = false,
+  onTap,
 }: {
   letter: string;
   found: boolean;
   review?: boolean;
   accent: string;
+  /** Spotlighted while the letter is being introduced. */
+  focused?: boolean;
+  onTap?: () => void;
 }) {
   return (
-    <div
-      className={`relative flex aspect-[4/5] flex-1 flex-col items-center justify-center rounded-3xl bg-white transition-colors ${found ? "ui-bounce-in" : ""}`}
+    <button
+      type="button"
+      onClick={onTap}
+      className={`relative flex aspect-[4/5] flex-1 flex-col items-center justify-center rounded-3xl bg-white transition-[transform,background-color] duration-300 ease-out ${
+        focused ? "z-10 scale-[1.14]" : "scale-100"
+      } ${found ? "ui-bounce-in" : ""}`}
       style={{
         background: found ? "#e3f8dc" : "#fff",
-        border: review && !found ? `4px dashed ${accent}` : "4px solid #fff",
-        boxShadow: `0 7px 0 ${found ? "#bfe6b2" : "#efe3d3"}`,
+        border: review && !found ? `4px dashed ${accent}` : `4px solid ${focused ? accent : "#fff"}`,
+        boxShadow: focused
+          ? `0 0 0 6px ${accent}33, 0 10px 0 ${found ? "#bfe6b2" : "#efe3d3"}`
+          : `0 7px 0 ${found ? "#bfe6b2" : "#efe3d3"}`,
       }}
-      aria-label={`${letter}${found ? ", found" : ""}${review ? ", memory letter" : ""}`}
+      aria-label={`${letter}${found ? ", found" : ""}${review ? ", memory letter" : ""}. Tap to hear it.`}
     >
       {review && (
         <span className="absolute -top-3 rounded-full px-2.5 py-0.5 text-sm font-semibold text-white" style={{ background: accent }}>
@@ -35,6 +46,6 @@ export function LetterCard({
           <Icon name="check" className="size-6" />
         </span>
       )}
-    </div>
+    </button>
   );
 }

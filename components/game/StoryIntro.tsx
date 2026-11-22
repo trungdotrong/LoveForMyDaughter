@@ -8,7 +8,7 @@ export function StoryIntro({ theme, onDone }: { theme: GameTheme; onDone: () => 
       <h1 className="text-center text-3xl font-bold sm:text-4xl" style={{ color: theme.colors.accentDark }}>
         {theme.intro.title}
       </h1>
-      <SceneFrame theme={theme} stage={0} />
+      <SceneFrame theme={theme} stage={0} interactive />
       <DialogueBox lines={theme.intro.dialogue} finalLabel="Let's go!" onDone={onDone} colors={theme.colors} />
     </div>
   );

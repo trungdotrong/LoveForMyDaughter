@@ -11,7 +11,7 @@ import {
   startChallenge,
   startNewSession,
 } from "@/lib/game-engine";
-import { parseQrPayload } from "@/lib/qr";
+import { encodeLetterPayload, parseQrPayload } from "@/lib/qr";
 import { updateSave } from "@/lib/storage";
 import { getTheme } from "@/themes";
 import { ChallengeScreen } from "./ChallengeScreen";
@@ -30,7 +30,8 @@ interface Found {
 /** Drives one Theme through the engine's phases: intro → challenge ⇄ story → finale. */
 export function GameScreen({ themeId }: { themeId: string }) {
   const theme = getTheme(themeId);
-  const { progress, updateProgress } = useGameProgress(themeId);
+  const { save, progress, updateProgress } = useGameProgress(themeId);
+  const testMode = save?.settings.testMode ?? false;
   const { play } = useSound();
   const [scanning, setScanning] = useState(false);
   const [found, setFound] = useState<Found | null>(null);
@@ -73,7 +74,14 @@ export function GameScreen({ themeId }: { themeId: string }) {
       break;
     case "challenge":
       heading = `SET ${String(progress.currentSet).padStart(2, "0")} / ${String(TOTAL_SETS).padStart(2, "0")}`;
-      content = <ChallengeScreen theme={theme} progress={progress} onScan={() => setScanning(true)} />;
+      content = (
+        <ChallengeScreen
+          theme={theme}
+          progress={progress}
+          onScan={() => setScanning(true)}
+          onTestScan={testMode ? (letter) => handleDetect(encodeLetterPayload(letter)) : undefined}
+        />
+      );
       break;
     case "story":
       content = (

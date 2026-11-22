@@ -49,7 +49,7 @@ export function StoryProgression({
           {event.title}
         </h1>
       </div>
-      <SceneFrame theme={theme} stage={setNumber} mode="arrival" />
+      <SceneFrame theme={theme} stage={setNumber} mode="arrival" interactive />
       <DialogueBox
         lines={event.dialogue}
         finalLabel={isLast ? "What happens next?" : "Keep going!"}

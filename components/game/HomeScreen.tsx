@@ -11,6 +11,7 @@ import { GameLink, IconButton } from "../ui/GameButton";
 import { Icon } from "../ui/Icon";
 import { Backdrop } from "./Backdrop";
 import { Logo } from "./Logo";
+import { RaceCups } from "../race/RaceCups";
 import { SettingsPanel } from "./SettingsPanel";
 import { ThemeCard } from "./ThemeSelector";
 
@@ -39,26 +40,32 @@ export function HomeScreen() {
           <CritterIcon species="bear" pose="bounce" className="h-24 w-20" />
         </div>
 
-        {canContinue && (
-          <GameLink
-            href={`/game/${continueTheme.id}`}
-            color={continueTheme.colors.accent}
-            shade={continueTheme.colors.accentDark}
-            className="w-full ui-pulse"
-          >
-            Continue · Set {Math.min(getSetsCompleted(continueProgress) + 1, TOTAL_SETS)}
-            <Icon name="arrow" className="size-7" />
-          </GameLink>
-        )}
+        {save?.settings.gameMode === "race" ? (
+          <RaceCups save={save} />
+        ) : (
+          <>
+            {canContinue && (
+              <GameLink
+                href={`/game/${continueTheme.id}`}
+                color={continueTheme.colors.accent}
+                shade={continueTheme.colors.accentDark}
+                className="w-full ui-pulse"
+              >
+                Continue · Set {Math.min(getSetsCompleted(continueProgress) + 1, TOTAL_SETS)}
+                <Icon name="arrow" className="size-7" />
+              </GameLink>
+            )}
 
-        <section className="flex flex-col gap-5">
-          <h2 className="text-center text-2xl font-semibold">Choose an adventure</h2>
-          {save
-            ? THEMES.map((theme) => (
-                <ThemeCard key={theme.id} theme={theme} progress={getThemeProgress(save, theme.id)} />
-              ))
-            : THEMES.map((theme) => <div key={theme.id} className="aspect-[4/3] rounded-[2rem] bg-white/60" />)}
-        </section>
+            <section className="flex flex-col gap-5">
+              <h2 className="text-center text-2xl font-semibold">Choose an adventure</h2>
+              {save
+                ? THEMES.map((theme) => (
+                    <ThemeCard key={theme.id} theme={theme} progress={getThemeProgress(save, theme.id)} />
+                  ))
+                : THEMES.map((theme) => <div key={theme.id} className="aspect-[4/3] rounded-[2rem] bg-white/60" />)}
+            </section>
+          </>
+        )}
       </main>
 
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
