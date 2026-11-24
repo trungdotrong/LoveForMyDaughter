@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { CritterIcon } from "@/components/art/Critter";
 import { Backdrop } from "@/components/game/Backdrop";
@@ -25,6 +26,9 @@ export default function LoginPage() {
             <SignIn />
           </Suspense>
         </div>
+        <Link href="/privacy" className="text-sm text-ink-soft underline underline-offset-4">
+          Privacy Policy
+        </Link>
       </main>
     </div>
   );

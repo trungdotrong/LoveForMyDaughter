@@ -1,8 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-/** Paths reachable without signing in. The printable cards hold nothing private. */
-const PUBLIC_PATHS = ["/login", "/auth", "/print"];
+/** Paths reachable without signing in. The printable cards hold nothing private; Google needs the privacy policy public. */
+const PUBLIC_PATHS = ["/login", "/auth", "/print", "/privacy"];
 
 // Refreshes the Supabase auth session and writes updated cookies
 // to both the request (for Server Components) and the response (for the browser).
