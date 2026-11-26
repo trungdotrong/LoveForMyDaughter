@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
-import { estimateSpeechMs, playMelody, sfx, speak, speakAsync, type Melody } from "@/lib/sound";
+import { estimateSpeechMs, installAudioUnlock, playMelody, sfx, speak, speakAsync, type Melody } from "@/lib/sound";
 import { setPreferredVoice } from "@/lib/voice";
 import { updateSave } from "@/lib/storage";
 import { useGameSave } from "./useGameProgress";
@@ -14,6 +14,7 @@ export function useSound() {
   const enabled = save?.settings.sound ?? true;
   const voice = save?.settings.voice;
   useEffect(() => setPreferredVoice(voice), [voice]);
+  useEffect(installAudioUnlock, []);
 
   const play = useCallback(
     (name: keyof typeof sfx) => {

@@ -20,8 +20,66 @@ function audio(): AudioContext | null {
     (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!Ctor) return null;
   ctx ??= new Ctor();
-  if (ctx.state === "suspended") void ctx.resume();
+  // iOS uses "interrupted" after a call, screen lock or tab switch, not only "suspended".
+  if (ctx.state !== "running") void ctx.resume().catch(() => {});
   return ctx;
+}
+
+const hasSpeech = () => typeof window !== "undefined" && "speechSynthesis" in window;
+
+/*
+ * Mobile browsers only allow sound that starts from a tap. The game often
+ * plays sound from timers and effects, so the first sound may be blocked, and
+ * after the tab is hidden the audio and speech can stay paused. To fix this,
+ * every tap wakes both audio and speech up again.
+ */
+
+let unlockInstalled = false;
+let speechPrimed = false;
+
+function wakeAudio() {
+  const ac = audio();
+  if (ac) {
+    // A silent one-sample buffer played inside a tap unlocks Web Audio on iOS.
+    const source = ac.createBufferSource();
+    source.buffer = ac.createBuffer(1, 1, 22050);
+    source.connect(ac.destination);
+    source.start(0);
+  }
+  if (!hasSpeech()) return;
+  const synth = window.speechSynthesis;
+  // Chrome can leave speech paused after the tab was in the background.
+  if (synth.paused) synth.resume();
+  if (!speechPrimed) {
+    // iOS only allows speech after a first speak() call made inside a tap.
+    speechPrimed = true;
+    if (!synth.speaking && !synth.pending) {
+      const primer = new SpeechSynthesisUtterance(" ");
+      primer.volume = 0;
+      synth.speak(primer);
+    }
+  }
+}
+
+/** Installs the tap and visibility listeners once. Safe to call many times. */
+export function installAudioUnlock(): void {
+  if (unlockInstalled || typeof window === "undefined") return;
+  unlockInstalled = true;
+  // On iOS 16.4+, play even when the phone's silent switch is on, like a video does.
+  const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+  if (session) session.type = "playback";
+  for (const event of ["pointerdown", "touchend", "keydown"]) {
+    window.addEventListener(event, wakeAudio, { capture: true, passive: true });
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    // Clear speech that got stuck while hidden, and try to resume audio.
+    if (hasSpeech()) {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.resume();
+    }
+    if (ctx && ctx.state !== "running") void ctx.resume().catch(() => {});
+  });
 }
 
 const NOTE_INDEX: Record<string, number> = {
@@ -204,7 +262,6 @@ export function estimateSpeechMs(text: string): number {
   );
 }
 
-const hasSpeech = () => typeof window !== "undefined" && "speechSynthesis" in window;
 const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /** Bumped whenever speech starts or stops, so an older sentence stops mid-way. */
@@ -232,7 +289,14 @@ function sayPart(part: SpeechPart): Promise<void> {
 export async function speakAsync(text: string): Promise<void> {
   if (!hasSpeech()) return pause(estimateSpeechMs(text));
   const run = ++speechRun;
-  window.speechSynthesis.cancel();
+  const synth = window.speechSynthesis;
+  if (synth.speaking || synth.pending) {
+    synth.cancel();
+    // Some Android Chrome versions drop a speak() called right after cancel().
+    await pause(60);
+    if (run !== speechRun) return;
+  }
+  if (synth.paused) synth.resume();
   const parts = parseSpeech(text);
   for (let i = 0; i < parts.length; i++) {
     if (run !== speechRun) return;
