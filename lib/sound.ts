@@ -35,7 +35,12 @@ const hasSpeech = () => typeof window !== "undefined" && "speechSynthesis" in wi
  */
 
 let unlockInstalled = false;
-let speechPrimed = false;
+/** True once the browser has actually started saying something, so speech is unlocked. */
+let speechWorks = false;
+/** The latest narration, kept so a tap can replay it if the browser blocked it. */
+let lastNarration: { text: string; at: number } | null = null;
+const REPLAY_WITHIN_MS = 10000;
+let lastPrimeAt = 0;
 
 function wakeAudio() {
   const ac = audio();
@@ -50,15 +55,21 @@ function wakeAudio() {
   const synth = window.speechSynthesis;
   // Chrome can leave speech paused after the tab was in the background.
   if (synth.paused) synth.resume();
-  if (!speechPrimed) {
-    // iOS only allows speech after a first speak() call made inside a tap.
-    speechPrimed = true;
-    if (!synth.speaking && !synth.pending) {
-      const primer = new SpeechSynthesisUtterance(" ");
-      primer.volume = 0;
-      synth.speak(primer);
-    }
-  }
+  // One tap fires several events; prime once per tap.
+  if (speechWorks || Date.now() - lastPrimeAt < 500) return;
+  lastPrimeAt = Date.now();
+  // iOS only allows speech after a first speak() call made inside a tap. Speech
+  // started earlier, outside a tap, sits stuck in the queue, so clear it first.
+  synth.cancel();
+  const primer = new SpeechSynthesisUtterance(".");
+  primer.volume = 0;
+  primer.onstart = () => {
+    speechWorks = true;
+  };
+  synth.speak(primer);
+  // Replay the line the child missed, now that speech is allowed.
+  const missed = lastNarration;
+  if (missed && Date.now() - missed.at < REPLAY_WITHIN_MS) void speakAsync(missed.text);
 }
 
 /** Installs the tap and visibility listeners once. Safe to call many times. */
@@ -279,6 +290,9 @@ function sayPart(part: SpeechPart): Promise<void> {
     };
     const timer = setTimeout(finish, estimateSpeechMs(part.stressed ? `*${part.text}*` : part.text) + 2000);
     const utterance = narratorUtterance(part.text, part.stressed);
+    utterance.onstart = () => {
+      speechWorks = true;
+    };
     utterance.onend = finish;
     utterance.onerror = finish;
     window.speechSynthesis.speak(utterance);
@@ -289,6 +303,7 @@ function sayPart(part: SpeechPart): Promise<void> {
 export async function speakAsync(text: string): Promise<void> {
   if (!hasSpeech()) return pause(estimateSpeechMs(text));
   const run = ++speechRun;
+  lastNarration = { text, at: Date.now() };
   const synth = window.speechSynthesis;
   if (synth.speaking || synth.pending) {
     synth.cancel();
@@ -313,5 +328,6 @@ export function speak(text: string): void {
 
 export function stopSpeaking(): void {
   speechRun++;
+  lastNarration = null;
   if (hasSpeech()) window.speechSynthesis.cancel();
 }
